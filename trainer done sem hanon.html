@@ -1,0 +1,900 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Piano Trainer – Chords + Reference + History</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --fg: #e7e8ea;
+      --muted: #9aa4b2;
+      --accent: #5ea1ff;
+      --green: #3ddc84;
+      --red: #ff5a6f;
+      --panel: #171a21;
+      --border: #252a33;
+    }
+    html,body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: var(--bg);
+      color: var(--fg);
+      display: grid;
+      place-items: start center;
+      padding: 24px;
+    }
+    .app { width: min(960px, 100%); }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    }
+
+    h1 { font-size: 20px; margin: 0 0 8px; color: var(--fg); }
+    h2 { font-size: 18px; margin: 0 0 10px; }
+    .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    label { color: var(--muted); font-size: 14px; }
+    select, button {
+      background: #0f1320;
+      color: var(--fg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 14px;
+    }
+    button { cursor: pointer; }
+    button.primary { background: var(--accent); border-color: #2c63ff; color: #0b1020; font-weight: 700; }
+    button:disabled { opacity: .6; cursor: not-allowed; }
+    .muted { color: var(--muted); }
+
+    .prompt {
+      font-size: clamp(24px, 5vw, 40px);
+      text-align: center;
+      margin: 18px 0 10px;
+      font-weight: 800;
+    }
+    .flash-green { color: var(--green) !important; }
+    .flash-red   { color: var(--red)   !important; }
+
+    .stats { display: flex; gap: 12px; flex-wrap: wrap; justify-content: space-between; }
+    .stat { background: #0c0f14; border: 1px solid var(--border); border-radius: 12px; padding: 8px 10px; }
+
+    /* Progress bar */
+    .progress-wrap{ width:100%; height:10px; border:1px solid var(--border); background:#0c0f14; border-radius:999px; overflow:hidden; margin-top:10px; }
+    .progress-bar{ height:100%; width:0%; background: var(--accent); transition: width .25s ease; }
+    .progress-label{ display:flex; justify-content:flex-end; font-size:12px; color: var(--muted); margin-top:6px; }
+
+    .hint { color: var(--muted); text-align: center; font-size: 14px; margin-top: 8px; }
+    .footer { color: var(--muted); font-size: 12px; text-align: center; margin-top: 10px; }
+    .warn { color: #ffd166; }
+    code { background: #0f1320; padding: 2px 6px; border-radius: 6px; border: 1px solid var(--border); }
+
+    /* ---------- Tabs (CSS-only) ---------- */
+    .tab-toggle { position: absolute; left: -9999px; }
+    .tabs .tab {
+      display: inline-block;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #0f1320;
+      color: var(--fg);
+      cursor: pointer;
+      user-select: none;
+    }
+    .tabs .tab + .tab { margin-left: 8px; }
+
+    /* Painéis das abas */
+    .tab-panel { display: none; }
+    /* Mostrar painel quando o radio correspondente está checado */
+    #tab-trainer:checked ~ #tab-trainer-panel { display: block; }
+    #tab-ref:checked     ~ #tab-reference     { display: block; }
+    #tab-history:checked ~ #tab-history-panel { display: block; }
+
+    /* Destacar label ativo */
+    #tab-trainer:checked ~ .tabs label[for="tab-trainer"],
+    #tab-ref:checked     ~ .tabs label[for="tab-ref"],
+    #tab-history:checked ~ .tabs label[for="tab-history"] {
+      outline: 2px solid var(--accent);
+    }
+
+    /* Tabela simples */
+    table.ref { width:100%; border-collapse: collapse; }
+    table.ref th, table.ref td { padding: 8px 6px; border-bottom: 1px solid var(--border); text-align: left; }
+    table.ref th { color: var(--muted); font-weight: 600; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid var(--border); background:#0f1320; margin:2px 4px 2px 0; }
+  </style>
+</head>
+<body>
+  <div class="app">
+
+    <!-- Radios das abas (antes dos painéis para o CSS ~ funcionar) -->
+    <input class="tab-toggle" type="radio" id="tab-trainer" name="tabs" checked>
+    <input class="tab-toggle" type="radio" id="tab-ref"     name="tabs">
+    <input class="tab-toggle" type="radio" id="tab-history" name="tabs">
+
+    <!-- Barra de abas -->
+    <div class="tabs card">
+      <div class="row">
+        <label class="tab" for="tab-trainer">Trainer</label>
+        <label class="tab" for="tab-ref">Reference</label>
+        <label class="tab" for="tab-history">History</label>
+      </div>
+    </div>
+
+    <!-- Painel: Trainer -->
+    <div id="tab-trainer-panel" class="tab-panel">
+      <!-- MIDI setup -->
+      <div class="card">
+        <h1>Piano Trainer – Group 1 Chord Trainer (Web MIDI)</h1>
+        <div class="row" style="margin-top:8px">
+          <label for="midi-input">MIDI input</label>
+          <select id="midi-input"></select>
+          <button id="enable-midi" class="primary">Enable MIDI</button>
+          <span class="muted" id="midi-status">Web MIDI requires HTTPS and a supported browser (Chrome/Edge/Safari). Grant permission when asked.</span>
+        </div>
+      </div>
+
+      <!-- Opções do exercício -->
+      <div class="card">
+        <div class="row">
+          <label>Inversions</label>
+          <select id="mode">
+            <option value="all" selected>root + 1st + 2nd</option>
+            <option value="root">root only</option>
+            <option value="inv1">1st inversion only</option>
+            <option value="inv2">2nd inversion only</option>
+          </select>
+
+          <label>Order</label>
+          <select id="order">
+            <option value="random" selected>Random</option>
+            <option value="fixed">Majors → Minors</option>
+          </select>
+
+          <button id="start" class="primary">Start Exercise</button>
+          <button id="stop" disabled>Stop</button>
+        </div> <!-- fecha a PRIMEIRA .row -->
+
+        <div class="row" style="margin-top:10px">
+          <label style="min-width:72px">Groups</label>
+          <label><input type="checkbox" id="g1" checked> Group 1</label>
+          <label><input type="checkbox" id="g2"> Group 2</label>
+          <label><input type="checkbox" id="g3"> Group 3</label>
+          <label><input type="checkbox" id="g4"> Group 4</label>
+        </div>
+      </div>
+
+      <!-- Área de execução -->
+      <div class="card" id="play-card">
+        <div id="prompt" class="prompt">Select a MIDI input and click <em>Enable MIDI</em></div>
+        <div class="hint" id="hint"></div>
+        <div class="stats" style="margin-top:10px">
+          <div class="stat" id="score">Score: 0/0 (0.0%)</div>
+          <div class="stat" id="held">Notes: []</div>
+          <div class="stat" id="timer">Time: 0.0s</div>
+        </div>
+        <div class="progress-wrap" aria-label="Progress">
+          <div id="progress-bar" class="progress-bar"></div>
+        </div>
+        <div class="progress-label" id="progress-text">Progress: 0/0</div>
+        <div class="footer">
+          Group 1 = Majors: <b>C F G</b> &nbsp;|&nbsp; Minors: <b>Dm Em Am</b>. &nbsp;Play exactly three unique notes (octave doubles OK). The lowest note determines inversion.
+        </div>
+      </div>
+
+      <!-- Dica -->
+      <div class="card">
+        <div class="warn">Tip:</div>
+        <div class="muted">If notes don’t register, make sure you granted MIDI permission and your device sends to the selected input. Some browsers/platforms need a user gesture (click) before MIDI works.</div>
+      </div>
+    </div>
+    <!-- Fim painel Trainer -->
+
+    <!-- Painel: Reference (conteúdo estático) -->
+    <div id="tab-reference" class="tab-panel">
+      <div class="card">
+        <h1>Reference</h1>
+        <p class="muted">Triads, inversions, and Group 1 chord sets used in the trainer.</p>
+      </div>
+
+      <div class="card">
+        <h2>Triad Formulas</h2>
+        <table class="ref">
+          <thead>
+            <tr><th>Quality</th><th>Intervals</th><th>Formula</th><th>Example (C)</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Major</td><td>R – 3 – 5</td><td>0, +4, +7 semitones</td><td><span class="pill">C</span><span class="pill">E</span><span class="pill">G</span></td></tr>
+            <tr><td>Minor</td><td>R – ♭3 – 5</td><td>0, +3, +7 semitones</td><td><span class="pill">C</span><span class="pill">E♭</span><span class="pill">G</span></td></tr>
+          </tbody>
+        </table>
+        <p class="muted" style="margin-top:8px">
+          Inversions are determined by the <b>lowest note</b> (bass): root position (R in bass), 1st inversion (3rd in bass), 2nd inversion (5th in bass).
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>Fingerings (triads)</h2>
+        <p class="muted">Get started with these — adjust to hand size as needed.</p>
+        <table class="ref">
+          <thead><tr><th>Position</th><th>Right Hand (RH)</th><th>Left Hand (LH)</th></tr></thead>
+          <tbody>
+            <tr><td>Root</td><td>1–3–5</td><td>5–3–1</td></tr>
+            <tr><td>1st inversion</td><td>1–2–5</td><td>5–3–1</td></tr>
+            <tr><td>2nd inversion</td><td>1–3–5</td><td>5–2–1</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Group 1 (only white keys)</h2>
+        <table class="ref">
+          <thead>
+            <tr><th>Set</th><th>Chords</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Majors</td>
+              <td>
+                <span class="pill">C</span>
+                <span class="pill">F</span>
+                <span class="pill">G</span>
+              </td>
+            </tr>
+            <tr>
+              <td>Minors</td>
+              <td>
+                <span class="pill">Dm</span>
+                <span class="pill">Em</span>
+                <span class="pill">Am</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Group 2 (one black key)</h2>
+        <table class="ref">
+          <thead>
+            <tr><th>Set</th><th>Chords</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Majors</td>
+              <td>
+                <span class="pill">D</span>
+                <span class="pill">E</span>
+                <span class="pill">A</span>
+              </td>
+            </tr>
+            <tr>
+              <td>Minors</td>
+              <td>
+                <span class="pill">Cm</span>
+                <span class="pill">Fm</span>
+                <span class="pill">Gm</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="muted">Idea: swap Group 1's major roots to their minor counterparts and vice-versa.</p>
+      </div>
+
+      <div class="card">
+        <h2>Group 3 (≥2 black keys)</h2>
+        <table class="ref">
+          <thead>
+            <tr><th>Set</th><th>Chords</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Majors</td>
+              <td>
+                <span class="pill">Db</span>
+                <span class="pill">Eb</span>
+                <span class="pill">Ab</span>
+              </td>
+            </tr>
+            <tr>
+              <td>Minors</td>
+              <td>
+                <span class="pill">C#m</span>
+                <span class="pill">D#m</span>
+                <span class="pill">G#m</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Group 4 (odd-shaped chords)</h2>
+        <table class="ref">
+          <thead>
+            <tr><th>Set</th><th>Chords</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Majors</td>
+              <td>
+                <span class="pill">Gb (F#)</span>
+                <span class="pill">B</span>
+                <span class="pill">Bb</span>
+              </td>
+            </tr>
+            <tr>
+              <td>Minors</td>
+              <td>
+                <span class="pill">F#m (Gb)</span>
+                <span class="pill">Bm</span>
+                <span class="pill">Bbm</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Inversion Examples (C Major)</h2>
+        <table class="ref">
+          <thead><tr><th>Position</th><th>Bass</th><th>Notes (one octave layout)</th></tr></thead>
+          <tbody>
+            <tr><td>Root</td><td>C</td><td><span class="pill">C</span><span class="pill">E</span><span class="pill">G</span></td></tr>
+            <tr><td>1st inversion</td><td>E</td><td><span class="pill">E</span><span class="pill">G</span><span class="pill">C</span></td></tr>
+            <tr><td>2nd inversion</td><td>G</td><td><span class="pill">G</span><span class="pill">C</span><span class="pill">E</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <!-- Fim painel Reference -->
+
+    <!-- Painel: History (resultados salvos localmente) -->
+    <div id="tab-history-panel" class="tab-panel">
+      <div class="card">
+        <h1>History</h1>
+        <p class="muted">Sessões completas salvas localmente (<code>localStorage</code>). Apenas exercícios de <b>chords</b> no modo <b>root + 1st + 2nd</b> são registrados.</p>
+      </div>
+
+      <div class="card">
+        <div class="row" style="gap:10px; align-items:flex-end;">
+          <div>
+            <label for="hist-type">Type</label><br>
+            <select id="hist-type" style="min-width:160px">
+              <option value="">All types</option>
+              <option value="chords" selected>chords</option>
+            </select>
+          </div>
+          <div>
+            <label for="hist-deck">Deck</label><br>
+            <select id="hist-deck" style="min-width:220px"></select>
+          </div>
+          <button id="hist-export">Export JSON</button>
+          <button id="hist-clear">Clear</button>
+          <span class="muted" id="hist-info"></span>
+        </div>
+        <div class="stats" style="margin-top:10px">
+          <div class="stat" id="hist-summary">No history yet.</div>
+          <div class="stat" id="hist-best">Best: —</div>
+          <div class="stat" id="hist-last">Last: —</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Sessions</h2>
+        <table class="ref" id="hist-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Deck</th>
+              <th>Time</th>
+              <th>Items</th>
+              <th>sec/item</th>
+              <th>Attempts</th>
+              <th>Accuracy</th>
+              <th>Wrong chord</th>
+              <th>Wrong inversion</th>
+            </tr>
+          </thead>
+          <tbody id="hist-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <!-- Fim painel History -->
+
+  </div>
+
+  <!-- ===================== JavaScript (Trainer + History) ===================== -->
+  <script>
+  (function(){
+    // ---------- Music helpers ----------
+    const NOTE_NAMES_SHARP = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+    // ---- Chord groups (pitch classes) ----
+    const GROUPS = {
+      1: { label: 'Group 1 – only white keys',
+           majors: [['C',0], ['F',5], ['G',7]],
+           minors: [['Dm',2], ['Em',4], ['Am',9]] },
+      2: { label: 'Group 2 – 1 black key',
+           majors: [['D',2], ['E',4], ['A',9]],
+           minors: [['Cm',0], ['Fm',5], ['Gm',7]] },
+      3: { label: 'Group 3 – ≥2 black keys',
+           majors: [['Db',1], ['Eb',3], ['Ab',8]],
+           minors: [['C#m',1], ['D#m',3], ['G#m',8]] },
+      4: { label: 'Group 4 – odd shaped',
+           majors: [['Gb',6], ['B',11], ['Bb',10]],
+           minors: [['F#m',6], ['Bm',11], ['Bbm',10]] },
+    };
+
+    function triadPcs(rootPc, quality){
+      if(quality === 'maj') return new Set([rootPc, (rootPc+4)%12, (rootPc+7)%12]);
+      if(quality === 'min') return new Set([rootPc, (rootPc+3)%12, (rootPc+7)%12]);
+      throw new Error('quality must be maj/min');
+    }
+    function detectInversion(rootPc, quality, bassPc){
+      const third = (rootPc + (quality==='maj'?4:3)) % 12;
+      const fifth = (rootPc + 7) % 12;
+      if(bassPc === rootPc) return 0;
+      if(bassPc === third)  return 1;
+      if(bassPc === fifth)  return 2;
+      return -1;
+    }
+    function makeTargets(mode){
+      const invMap = { all:[0,1,2], root:[0], inv1:[1], inv2:[2] };
+      const invs = invMap[mode] || [0,1,2];
+
+      // Which groups are selected (default to 1 if none)
+      const selected = [1,2,3,4].filter(gid => document.getElementById(`g${gid}`)?.checked);
+      const groupsToUse = selected.length ? selected : [1];
+
+      const list = [];
+      for (const gid of groupsToUse) {
+        const g = GROUPS[gid];
+        if (!g) continue;
+        // Majors
+        for (const [name, r] of g.majors) {
+          for (const inv of invs) {
+            const lab = inv===0 ? `${name} (root)` : inv===1 ? `${name} (1st inv)` : `${name} (2nd inv)`;
+            list.push({ rootPc: r, quality: 'maj', inversion: inv, label: lab });
+          }
+        }
+        // Minors
+        for (const [name, r] of g.minors) {
+          const base = name.replace('m','');
+          for (const inv of invs) {
+            const lab = inv===0 ? `${base}m (root)` : inv===1 ? `${base}m (1st inv)` : `${base}m (2nd inv)`;
+            list.push({ rootPc: r, quality: 'min', inversion: inv, label: lab });
+          }
+        }
+      }
+      return list;
+    }
+    function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+    // ---------- DOM ----------
+    const elInput   = document.getElementById('midi-input');
+    const elEnable  = document.getElementById('enable-midi');
+    const elStatus  = document.getElementById('midi-status');
+    const elMode    = document.getElementById('mode');
+    const elOrder   = document.getElementById('order');
+    const elStart   = document.getElementById('start');
+    const elStop    = document.getElementById('stop');
+    const elPrompt  = document.getElementById('prompt');
+    const elHint    = document.getElementById('hint');
+    const elScore   = document.getElementById('score');
+    const elHeld    = document.getElementById('held');
+    const elTimer   = document.getElementById('timer');
+    const elProgressBar = document.getElementById('progress-bar');
+    const elProgressText = document.getElementById('progress-text');
+
+    // ---------- MIDI state ----------
+    let midiAccess = null;
+    let inputPort = null;
+    let currentNotes = new Set();
+    let evalTimer = null;
+
+    // Exercise state
+    let targets = [];
+    let idx = 0;
+    let started = false;
+    let attempts = 0;
+    let correct = 0;
+    let startTime = 0;
+    let timerId = null;
+
+    function updateScore(){
+      const rate = attempts ? (100*correct/attempts).toFixed(1) : '0.0';
+      elScore.textContent = `Score: ${correct}/${attempts} (${rate}%)`;
+    }
+    function updateHeld(){
+      elHeld.textContent = `Notes: [${Array.from(currentNotes).sort((a,b)=>a-b).join(', ')}]`;
+    }
+    function updateProgress(){
+      const total = targets.length || 0;
+      const done = Math.min(idx, total);
+      elProgressText.textContent = `Progress: ${done}/${total}`;
+      const pct = total ? (100 * done / total) : 0;
+      if (elProgressBar) elProgressBar.style.width = pct + '%';
+    }
+    function hintForTarget(t){
+      const rootMidi = 60 + ((t.rootPc - 0 + 12) % 12); // C4-based layout
+      const triad = t.quality==='maj' ? [rootMidi, rootMidi+4, rootMidi+7] : [rootMidi, rootMidi+3, rootMidi+7];
+      const rotated = triad.slice(t.inversion).concat(triad.slice(0,t.inversion).map(n=>n+12));
+      const names = rotated.map(n => `${NOTE_NAMES_SHARP[n%12]}${Math.floor(n/12)-1}`);
+      return `Hint: ${names.join(' - ')} (play exactly 3 notes; octave doubles are fine)`;
+    }
+    function showTarget(){
+      const t = targets[idx];
+      elPrompt.textContent = t.label;
+      elPrompt.classList.remove('flash-green','flash-red');
+      elHint.textContent = hintForTarget(t);
+    }
+    function startTimer(){
+      const tick = ()=>{
+        const s = (performance.now() - startTime)/1000;
+        elTimer.textContent = `Time: ${s.toFixed(1)}s`;
+        if(started) timerId = requestAnimationFrame(tick);
+      };
+      timerId = requestAnimationFrame(tick);
+    }
+
+    function flash(color, text){
+      if(text) elPrompt.textContent = text;
+      elPrompt.classList.remove('flash-green','flash-red');
+      elPrompt.classList.add(color==='green'?'flash-green':'flash-red');
+      setTimeout(()=>{
+        if(started){ elPrompt.classList.remove('flash-green','flash-red'); elPrompt.textContent = targets[idx].label; }
+      }, 350);
+    }
+    function setsEqual(a,b){ if(a.size!==b.size) return false; for(const v of a) if(!b.has(v)) return false; return true; }
+
+    /* ======================= HISTORY / PERSISTENCE ======================= */
+    const HIST_KEY = 'pt_history_v1';       // storage key
+    const SCHEMA_VERSION = 1;               // bump if structure changes
+
+    // generic type tags for future exercises (e.g., 'scales', 'arpeggios', etc.)
+    const EXERCISE_TYPE = 'chords';
+
+    function loadHistory(){
+      try {
+        const raw = JSON.parse(localStorage.getItem(HIST_KEY) || '[]');
+        // migrate older shapes if necessary
+        return raw.map(migrateRecord).filter(Boolean);
+      } catch(_){ return []; }
+    }
+    function saveHistory(arr){
+      try { localStorage.setItem(HIST_KEY, JSON.stringify(arr)); }
+      catch(err){ alert('Could not save history (localStorage).'); }
+    }
+    function addSession(rec){
+      const hist = loadHistory();
+      hist.push(rec);
+      saveHistory(hist);
+      // refresh UI
+      buildDeckList();
+      recomputeHistoryUI();
+    }
+    function migrateRecord(r){
+      if(!r) return null;
+      // Ensure minimal fields exist
+      if(!('schema' in r)) r.schema = SCHEMA_VERSION;
+      if(!('type' in r)) r.type = EXERCISE_TYPE; // assume chords for legacy
+      if(!('deckKey' in r) && r.deckMeta){
+        r.deckKey = deckKeyFromMeta(r.type, r.deckMeta);
+      }
+      return r;
+    }
+
+    function fmt2(n){ return n.toString().padStart(2,'0'); }
+    function fmtDate(ts){
+      const d = new Date(ts);
+      const yyyy = d.getFullYear();
+      const mm = fmt2(d.getMonth()+1);
+      const dd = fmt2(d.getDate());
+      const hh = fmt2(d.getHours());
+      const mi = fmt2(d.getMinutes());
+      return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
+    }
+
+    function selectedGroupsOrDefault(){
+      const sel = [1,2,3,4].filter(g=>document.getElementById(`g${g}`)?.checked);
+      return sel.length ? sel : [1];
+    }
+    function deckKeyFromMeta(type, meta){
+      // meta: { groups:[..], inversions:[..], mode:'all' }
+      const gs = (meta.groups||[]).slice().sort((a,b)=>a-b).join(',');
+      const inv = (meta.inversions||[]).slice().sort((a,b)=>a-b).join('');
+      return `${type}|groups:${gs}|inv:${inv}`; // order-free, stable key
+    }
+    function deckKeyFor(groups, mode){
+      // For chords we care about inversions represented by mode
+      const inversions = (mode==='all') ? [0,1,2] : (mode==='root'?[0] : mode==='inv1'?[1] : [2]);
+      const meta = { groups: (groups&&groups.length?groups:[1]), inversions, mode };
+      return deckKeyFromMeta(EXERCISE_TYPE, meta);
+    }
+    function deckLabelFromKey(key){
+      // e.g., "chords|groups:1,3|inv:012" -> "chords • G1+G3 • root+1st+2nd"
+      const m = /^([^|]+)\|groups:([0-9,]*)\|inv:([0-9]+)/.exec(key);
+      if(!m) return key;
+      const type = m[1];
+      const groups = m[2] ? m[2].split(',').map(x=>`G${x}`).join('+') : 'G1';
+      const invs = m[3];
+      const invLabel = invs==='012' ? 'root+1st+2nd' : invs==='0'?'root':invs==='1'?'1st':'2nd';
+      return groups;
+    }
+
+    // --------- History UI ---------
+    const elHistType   = document.getElementById('hist-type');
+    const elHistDeck   = document.getElementById('hist-deck');
+    const elHistInfo   = document.getElementById('hist-info');
+    const elHistSummary= document.getElementById('hist-summary');
+    const elHistBest   = document.getElementById('hist-best');
+    const elHistLast   = document.getElementById('hist-last');
+    const elHistTbody  = document.getElementById('hist-tbody');
+    const elHistExport = document.getElementById('hist-export');
+    const elHistClear  = document.getElementById('hist-clear');
+
+    function buildDeckList(){
+      const hist = loadHistory();
+      const typeFilter = elHistType?.value || '';
+      const filtered = typeFilter ? hist.filter(h=>h.type===typeFilter) : hist;
+      const set = new Set(filtered.map(h => h.deckKey));
+      const keys = [...set].sort();
+      if(!elHistDeck) return;
+      elHistDeck.innerHTML = '';
+      const optAll = document.createElement('option');
+      optAll.value = ''; optAll.textContent = 'All decks';
+      elHistDeck.appendChild(optAll);
+      for(const k of keys){
+        const opt = document.createElement('option');
+        opt.value = k; opt.textContent = deckLabelFromKey(k);
+        elHistDeck.appendChild(opt);
+      }
+    }
+
+    function recomputeHistoryUI(){
+      if(!elHistTbody) return;
+      const histAll = loadHistory().sort((a,b)=>b.ts - a.ts);
+      const typeFilter = elHistType?.value || '';
+      const byType = typeFilter ? histAll.filter(h=>h.type===typeFilter) : histAll;
+      const filterKey = elHistDeck?.value || '';
+      const rows = (filterKey ? byType.filter(h=>h.deckKey===filterKey) : byType);
+
+      // Summary
+      if(rows.length === 0){
+        elHistSummary.textContent = 'No history yet.';
+        elHistBest.textContent = 'Best: —';
+        elHistLast.textContent = 'Last: —';
+      } else {
+        const bestByTime = [...rows].sort((a,b)=>a.duration_sec - b.duration_sec)[0];
+        const last = rows[0];
+        const avgSPI = rows.reduce((s,x)=>s + (x.duration_sec/x.total_items), 0) / rows.length;
+
+        elHistSummary.textContent = `Sessions: ${rows.length} • Avg sec/item: ${avgSPI.toFixed(2)}`;
+        elHistBest.textContent = `Best: ${bestByTime.duration_sec.toFixed(1)}s (${(bestByTime.duration_sec/bestByTime.total_items).toFixed(2)} s/item, acc ${(bestByTime.accuracy*100).toFixed(0)}%)`;
+        elHistLast.textContent = `Last: ${last.duration_sec.toFixed(1)}s • ${(last.duration_sec/last.total_items).toFixed(2)} s/item • acc ${(last.accuracy*100).toFixed(0)}%`;
+      }
+
+      // Table
+      elHistTbody.innerHTML = '';
+      for(const h of rows){
+        const tr = document.createElement('tr');
+        const td = (t)=>{ const x=document.createElement('td'); x.textContent=t; return x; };
+        tr.appendChild(td(fmtDate(h.ts)));
+        tr.appendChild(td(h.type));
+        tr.appendChild(td(deckLabelFromKey(h.deckKey)));
+        tr.appendChild(td(`${h.duration_sec.toFixed(1)}s`));
+        tr.appendChild(td(String(h.total_items)));
+        tr.appendChild(td((h.duration_sec/h.total_items).toFixed(2)));
+        tr.appendChild(td(`${h.attempts}`));
+        tr.appendChild(td(`${(h.accuracy*100).toFixed(0)}%`));
+        tr.appendChild(td(String(h.mistakes_wrongChord||0)));
+        tr.appendChild(td(String(h.mistakes_wrongInversion||0)));
+        elHistTbody.appendChild(tr);
+      }
+
+      const label = [];
+      if(typeFilter) label.push(`type: ${typeFilter}`);
+      if(filterKey) label.push(deckLabelFromKey(filterKey));
+      elHistInfo.textContent = label.join(' • ');
+    }
+
+    // Export & clear
+    elHistExport?.addEventListener('click', ()=>{
+      const data = JSON.stringify(loadHistory(), null, 2);
+      const blob = new Blob([data], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'piano_trainer_history.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+    elHistClear?.addEventListener('click', ()=>{
+      if(confirm('Clear all saved sessions?')) {
+        localStorage.removeItem(HIST_KEY);
+        buildDeckList();
+        recomputeHistoryUI();
+      }
+    });
+    elHistDeck?.addEventListener('change', recomputeHistoryUI);
+    elHistType?.addEventListener('change', ()=>{ buildDeckList(); recomputeHistoryUI(); });
+
+    // Inicializa a aba ao carregar
+    buildDeckList();
+    recomputeHistoryUI();
+
+    /* ================== HOOKS NO TREINADOR PARA SALVAR ================== */
+    // Contadores específicos da sessão
+    let sessionGroupsUsed = [];
+    let wrongChordCount = 0;
+    let wrongInvCount   = 0;
+
+    function startExercise(){
+      if(!inputPort){ alert('Choose a MIDI input and click Enable MIDI first.'); return; }
+      const mode = elMode.value;
+
+      // Capturar grupos e resetar contadores
+      sessionGroupsUsed = selectedGroupsOrDefault();
+      wrongChordCount = 0;
+      wrongInvCount = 0;
+
+      targets = makeTargets(mode);
+      if(elOrder.value === 'random') shuffle(targets);
+      idx = 0; attempts = 0; correct = 0; started = true;
+      updateProgress();
+      updateScore();
+      startTime = performance.now();
+      startTimer();
+      elStart.disabled = true; elStop.disabled = false;
+      showTarget();
+    }
+
+    function stopExercise(){
+      started = false;
+      elStart.disabled = false; elStop.disabled = true;
+      elPrompt.textContent = 'Exercise stopped.';
+      elHint.textContent = '';
+      if(timerId){ cancelAnimationFrame(timerId); timerId=null; }
+      updateProgress();
+    }
+
+    function advance(){
+      idx++;
+      updateProgress();
+      if(idx >= targets.length){
+        started = false;
+        elStart.disabled = false;
+        elStop.disabled = true;
+        if(timerId){ cancelAnimationFrame(timerId); timerId = null; }
+        const elapsed = (performance.now() - startTime) / 1000;
+        const rate = attempts ? (100*correct/attempts).toFixed(1) : '0.0';
+        elPrompt.textContent = `Finished! Time: ${elapsed.toFixed(1)}s | Score: ${correct}/${attempts} (${rate}%)`;
+        elHint.textContent = '';
+
+        // ===== Persist only full mode (all inversions) sessions =====
+        if(elMode.value === 'all'){
+          const rec = {
+            schema: SCHEMA_VERSION,
+            type: EXERCISE_TYPE,
+            ts: Date.now(),
+            duration_sec: +elapsed.toFixed(3),
+            total_items: targets.length,
+            attempts, correct,
+            accuracy: attempts ? correct/attempts : 0,
+            mistakes_wrongChord: wrongChordCount,
+            mistakes_wrongInversion: wrongInvCount,
+            deckMeta: { groups: sessionGroupsUsed.slice(), inversions: [0,1,2], mode: 'all' }
+          };
+          rec.deckKey = deckKeyFromMeta(rec.type, rec.deckMeta);
+          addSession(rec);
+        }
+        return;
+      }
+      showTarget();
+    }
+
+    function evaluate(){
+      if(!started) return;
+      if(currentNotes.size===0) return;
+      const pcs = new Set(Array.from(currentNotes, n => n%12));
+      if(pcs.size !== 3) return; // require exactly 3 unique pcs
+
+      const notesSorted = Array.from(currentNotes).sort((a,b)=>a-b);
+      const bassPc = notesSorted[0] % 12;
+      const t = targets[idx];
+      const expected = triadPcs(t.rootPc, t.quality);
+
+      if(setsEqual(pcs, expected)){
+        const inv = detectInversion(t.rootPc, t.quality, bassPc);
+        attempts++;
+        if(inv === t.inversion){
+          correct++;
+          flash('green');
+          updateScore();
+          setTimeout(advance, 450);
+        } else {
+          wrongInvCount++;
+          flash('red', 'Right chord, wrong inversion — try again');
+          updateScore();
+        }
+      } else {
+        attempts++;
+        wrongChordCount++;
+        flash('red', 'Wrong chord — try again');
+        updateScore();
+      }
+    }
+
+    function enableEvalSoon(){
+      if(evalTimer) clearTimeout(evalTimer);
+      evalTimer = setTimeout(evaluate, 280);
+    }
+
+    function onMIDIMessage(e){
+      const [status, data1, data2] = e.data;
+      const type = status & 0xf0;
+      if(type===0x90 && data2>0){ // note on
+        currentNotes.add(data1);
+        updateHeld();
+        enableEvalSoon();
+      } else if(type===0x80 || (type===0x90 && data2===0)) { // note off
+        currentNotes.delete(data1);
+        updateHeld();
+        enableEvalSoon();
+      } else if(type===0xB0 && data1===64){ // sustain pedal
+        enableEvalSoon();
+      }
+    }
+    function bindInput(port){
+      if(inputPort){ inputPort.onmidimessage = null; }
+      inputPort = port;
+      if(inputPort){ inputPort.onmidimessage = onMIDIMessage; }
+    }
+    async function enableMIDI(){
+      try{
+        const access = await navigator.requestMIDIAccess({ sysex:false });
+        midiAccess = access;
+        elStatus.textContent = 'MIDI enabled';
+        const updateInputs = ()=>{
+          elInput.innerHTML = '';
+          for(const input of midiAccess.inputs.values()){
+            const opt = document.createElement('option');
+            opt.value = input.id; opt.textContent = input.name;
+            elInput.appendChild(opt);
+          }
+          if(midiAccess.inputs.size>0){
+            const first = midiAccess.inputs.values().next().value;
+            elInput.value = first.id;
+            bindInput(first);
+          }
+        };
+        updateInputs();
+        midiAccess.onstatechange = updateInputs;
+      }catch(err){
+        elStatus.textContent = 'MIDI not available: ' + err;
+      }
+    }
+
+    // ---------- Wire up ----------
+    document.getElementById('start').addEventListener('click', startExercise);
+    document.getElementById('stop').addEventListener('click', stopExercise);
+    document.getElementById('enable-midi').addEventListener('click', enableMIDI);
+    document.getElementById('midi-input').addEventListener('change', ()=>{
+      if(!midiAccess) return;
+      const id = elInput.value;
+      for(const input of midiAccess.inputs.values()){
+        if(input.id===id){ bindInput(input); break; }
+      }
+    });
+  })();
+  </script>
+</body>
+</html>
