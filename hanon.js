@@ -89,6 +89,10 @@ function onMIDIMessage(e){
 
 let midiAccess=null, inputPort=null;
 async function enableMIDI(){
+  if(!navigator.requestMIDIAccess){
+    document.getElementById('status').textContent='Web MIDI não suportado; use Chrome/Edge em https ou localhost';
+    return;
+  }
   try{
     midiAccess = await navigator.requestMIDIAccess();
     document.getElementById('status').textContent='MIDI enabled';
