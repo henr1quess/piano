@@ -106,11 +106,12 @@ async function enableMIDI(){
   }
 }
 
-document.getElementById('enable-midi').addEventListener('click', enableMIDI);
-
-document.getElementById('start').addEventListener('click',()=>{
-  const scale = document.getElementById('scale').value;
-  hands = document.getElementById('hands').value;
-  buildHanon1(scale);
-  render();
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('enable-midi').addEventListener('click', enableMIDI);
+  document.getElementById('start').addEventListener('click', () => {
+    const scale = document.getElementById('scale').value;
+    hands = document.getElementById('hands').value;
+    buildHanon1(scale);
+    render();
+  });
 });
