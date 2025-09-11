@@ -159,6 +159,7 @@
 
           <button id="start" class="primary">Start Exercise</button>
           <button id="stop" disabled>Stop</button>
+          <label><input type="checkbox" id="auto-restart"> Auto restart</label>
         </div> <!-- fecha a PRIMEIRA .row -->
 
         <div class="row" style="margin-top:10px">
@@ -485,6 +486,7 @@
     const elOrder   = document.getElementById('order');
     const elStart   = document.getElementById('start');
     const elStop    = document.getElementById('stop');
+    const elAutoRestart = document.getElementById('auto-restart');
     const elPrompt  = document.getElementById('prompt');
     const elHint    = document.getElementById('hint');
     const elScore   = document.getElementById('score');
@@ -507,6 +509,7 @@
     let correct = 0;
     let startTime = 0;
     let timerId = null;
+    let restartTimer = null;
 
     function updateScore(){
       const rate = attempts ? (100*correct/attempts).toFixed(1) : '0.0';
@@ -738,6 +741,7 @@
     let wrongInvCount   = 0;
 
     function startExercise(){
+      if(restartTimer){ clearTimeout(restartTimer); restartTimer = null; }
       if(!inputPort){ alert('Choose a MIDI input and click Enable MIDI first.'); return; }
       const mode = elMode.value;
 
@@ -763,6 +767,7 @@
       elPrompt.textContent = 'Exercise stopped.';
       elHint.textContent = '';
       if(timerId){ cancelAnimationFrame(timerId); timerId=null; }
+      if(restartTimer){ clearTimeout(restartTimer); restartTimer = null; }
       updateProgress();
     }
 
@@ -795,6 +800,9 @@
           };
           rec.deckKey = deckKeyFromMeta(rec.type, rec.deckMeta);
           addSession(rec);
+        }
+        if(elAutoRestart.checked){
+          restartTimer = setTimeout(startExercise, 1500);
         }
         return;
       }
