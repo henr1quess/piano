@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hanon No. 1 Trainer</title>
+  <style>
+    body{font-family:sans-serif;background:#0f1115;color:#e7e8ea;padding:20px;}
+    label{margin-right:10px;}
+    select,button{margin-right:10px;padding:4px 8px;}
+    #notation{margin-top:20px;}
+  </style>
+  <script src="https://unpkg.com/vexflow/releases/vexflow-min.js"></script>
+  <script type="module" src="hanon.js"></script>
+</head>
+<body>
+  <h1>Hanon No. 1 Trainer</h1>
+  <div class="controls">
+    <label>Scale
+      <select id="scale">
+        <option>C</option>
+        <option>G</option>
+        <option>D</option>
+        <option>A</option>
+        <option>E</option>
+        <option>B</option>
+        <option>F#</option>
+        <option>C#</option>
+        <option>F</option>
+        <option>Bb</option>
+        <option>Eb</option>
+        <option>Ab</option>
+      </select>
+    </label>
+    <label>Hands
+      <select id="hands">
+        <option value="both">Both</option>
+        <option value="right">Right only</option>
+        <option value="left">Left only</option>
+      </select>
+    </label>
+    <button id="start">Start</button>
+    <button id="enable-midi">Enable MIDI</button>
+    <span id="status"></span>
+  </div>
+  <div id="notation"></div>
+</body>
+</html>
